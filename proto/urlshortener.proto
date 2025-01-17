@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package gRPCtest;
+
+option go_package = "url-shortener/pb;pb";
+
+service URLShortener{
+  rpc URLShort (ShortenRequest) returns (ShortenResponse);
+  rpc GetOriginalURL (OriginalRequest) returns (OriginalResponse);
+  rpc GetStats (StatRequest) returns (StatResponse);
+}
+
+message  ShortenRequest{
+  string originalURL = 1;
+}
+
+message ShortenResponse{
+  string shortURL = 1;
+}
+
+message OriginalRequest{
+  string shortURL = 1;
+}
+
+message OriginalResponse{
+  string originalURL = 1;
+}
+
+message StatRequest{
+  string shortURL = 1;
+}
+
+message StatResponse{
+  int64 clickCount = 1;
+  string lastAccess = 2; //time of last access
+}
