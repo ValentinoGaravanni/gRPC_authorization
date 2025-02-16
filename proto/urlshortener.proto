@@ -2,35 +2,59 @@ syntax = "proto3";
 
 package gRPCtest;
 
-option go_package = "url-shortener/pb;pb";
+import "google/api/annotations.proto";
 
-service URLShortener{
-  rpc URLShort (ShortenRequest) returns (ShortenResponse);
-  rpc GetOriginalURL (OriginalRequest) returns (OriginalResponse);
-  rpc GetStats (StatRequest) returns (StatResponse);
+option go_package = "grpc-test/pb";
+
+
+service URLShortener {
+  rpc URLShort (ShortenRequest) returns (ShortenResponse) {
+    option (google.api.http) = {
+      post: "/shorten"
+      body: "*"
+    };
+  }
+
+  rpc GetOriginalURL (OriginalRequest) returns (OriginalResponse) {
+    option (google.api.http) = {
+      get: "/{shortURL}"
+    };
+  }
+
+  rpc GetStats (StatRequest) returns (StatResponse) {
+    option (google.api.http) = {
+      get: "/stats/{shortURL}"
+    };
+  }
 }
 
-message  ShortenRequest{
+// request for short URL
+message ShortenRequest {
   string originalURL = 1;
 }
 
-message ShortenResponse{
+// response URL
+message ShortenResponse {
   string shortURL = 1;
 }
 
-message OriginalRequest{
+// request for original URL
+message OriginalRequest {
   string shortURL = 1;
 }
 
-message OriginalResponse{
+// Response with original URL
+message OriginalResponse {
   string originalURL = 1;
 }
 
-message StatRequest{
+// Req stat
+message StatRequest {
   string shortURL = 1;
 }
 
-message StatResponse{
+// Resp stat
+message StatResponse {
   int64 clickCount = 1;
-  string lastAccess = 2; //time of last access
+  string lastAccess = 2;
 }

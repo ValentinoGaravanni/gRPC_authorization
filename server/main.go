@@ -2,47 +2,115 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
 
+	"net/http"
+	"time"
+	"url-shortener/middleware"
+	"url-shortener/storage"
+
 	"google.golang.org/grpc"
-	pb "url-shortener/url-shortener/pb" /// Import generated files
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	pb "url-shortener/proto" /// Import generated files
 )
 
 type server struct {
 	pb.UnimplementedURLShortenerServer
+	save *storage.Storage
 }
 
 func (s *server) URLShort(ctx context.Context, req *pb.ShortenRequest) (*pb.ShortenResponse, error) {
-	short := "short.link/" + "948234"
+	short := "https://short.link/" + fmt.Sprintf("%d", time.Now().UnixNano())
+
+	//Add to DB
+	if err := s.save.AddURL(req.OriginalURL, short); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to shorten URL: %v", err)
+	}
 	return &pb.ShortenResponse{ShortURL: short}, nil
 }
 
 func (s *server) GetOriginalURL(ctx context.Context, req *pb.OriginalRequest) (*pb.OriginalResponse, error) {
-	original := "https://www.google.com"
+	original, err := s.save.GetOrginalURL(req.ShortURL)
+	if err != nil {
+		//Check if url exists in DB
+		if err == sql.ErrNoRows {
+			return nil, status.Errorf(codes.NotFound, "Short URL not found %v", req.ShortURL)
+		}
+		return nil, status.Errorf(codes.Internal, "Failed to fetch original URL: %v", err)
+	}
+	if err := s.save.ClickCountInc(req.ShortURL); err != nil {
+		log.Printf("Failed to increment click count for %s:  %v", req.ShortURL, err)
+	}
 	return &pb.OriginalResponse{OriginalURL: original}, nil
 }
 
-func (s *server) GetStat(ctx context.Context, req *pb.StatRequest) (*pb.StatResponse, error) {
-	stats := &pb.StatResponse{
-		ClickCount: 42,
-		LastAccess: "2025-01-16T12:00:00Z",
+func (s *server) GetStats(ctx context.Context, req *pb.StatRequest) (*pb.StatResponse, error) {
+	//Receiving stats
+	clickCount, err := s.save.GetStats(req.ShortURL)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Short URL not found: %v", err)
 	}
-	return stats, nil
+
+	//Reply
+	return &pb.StatResponse{
+		ClickCount: int64(int32(clickCount)),
+		LastAccess: time.Now().Format(time.RFC3339), //Last time format
+	}, nil
 }
 
 func main() {
-	listener, err := net.Listen("tcp", ":50052")
+	// DB init
+	store := storage.NewStorage("urlshortener.db")
+
+	// gRPC server
+	rl := middleware.NewRateLimiter(10, time.Second)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middleware.LoggingInterceptor,
+			middleware.RateLimitingInterceptor(rl),
+		),
+	)
+	pb.RegisterURLShortenerServer(grpcServer, &server{save: store})
+
+	// gRPC-Gateway mux
+	ctx := context.Background()
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())} // заміна WithInsecure()
+	err := pb.RegisterURLShortenerHandlerFromEndpoint(ctx, mux, ":8080", opts)
 	if err != nil {
-		log.Fatalf("Failed to listen: &v", err)
+		log.Fatalf("Failed to register gRPC-Gateway: %v", err)
 	}
 
-	grpcServer := grpc.NewServer() //Server created
-	pb.RegisterURLShortenerServer(grpcServer, &server{})
+	// HTTP server for gRPC-Gateway
+	httpMux := http.NewServeMux()
+	httpMux.Handle("/", mux)
 
-	log.Println("Server is running on port :50052 ") //Server launch
-	if err := grpcServer.Serve(listener); err != nil {
+	// Launch HTTP serv
+	srv := &http.Server{
+		Addr:    ":8081",
+		Handler: httpMux,
 	}
-	log.Fatalf("Failed to serve: %v", err)
 
+	log.Println("Starting gRPC-Gateway on :8081")
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// gRPC server launch
+	lis, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatalf("Failed to listen on :8080: %v", err)
+	}
+	log.Println("Starting gRPC server on :8080")
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve gRPC: %v", err)
+	}
 }
