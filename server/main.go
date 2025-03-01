@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/rs/cors"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
@@ -65,6 +66,7 @@ func (s *server) GetStats(ctx context.Context, req *pb.StatRequest) (*pb.StatRes
 }
 
 func main() {
+
 	// DB init
 	store := storage.NewStorage("urlshortener.db")
 
@@ -89,12 +91,24 @@ func main() {
 
 	// HTTP server for gRPC-Gateway
 	httpMux := http.NewServeMux()
-	httpMux.Handle("/", mux)
+	httpMux.Handle("/api/", http.StripPrefix("/api", mux))
 
-	// Launch HTTP serv
+	fs := http.FileServer(http.Dir("./web"))
+	httpMux.Handle("/", fs)
+
+	// CORS adding
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, //all domains
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})
+	handler := c.Handler(httpMux)
+
+	// HTTP CORS launch
 	srv := &http.Server{
 		Addr:    ":8081",
-		Handler: httpMux,
+		Handler: handler,
 	}
 
 	log.Println("Starting gRPC-Gateway on :8081")
