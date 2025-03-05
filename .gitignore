@@ -1,1 +1,28 @@
-/JWTsecret.env
+# Ignore SQLite database files
+urlshortener.db
+*.sqlite
+*.sqlite3
+
+# Ignore environment files (secrets)
+JWTsecret.env
+.env
+
+# Ignore logs
+*.log
+
+# Ignore frontend dependencies (if applicable)
+node_modules/
+
+# Ignore Goland IDE files
+.idea/
+
+# Ignore binaries and build artifacts
+*.exe
+*.out
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+bin/
+vendor/

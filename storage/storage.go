@@ -33,15 +33,15 @@ func NewStorage(databasePath string) *Storage {
 }
 
 // Short URL add
-func (s *Storage) AddURL(originalURL, shortURL string) error {
-	_, err := s.db.Exec("INSERT INTO urls (original_url, short_url) VALUES (?,?)", originalURL, shortURL)
+func (s *Storage) AddURL(originalURL, shortID string) error {
+	_, err := s.db.Exec("INSERT INTO urls (original_url, short_url) VALUES (?,?)", originalURL, shortID)
 	return err
 }
 
 // Receiving our originalURL
-func (s *Storage) GetOrginalURL(shortURL string) (string, error) {
+func (s *Storage) GetOrginalURL(shortID string) (string, error) {
 	var originalURL string
-	err := s.db.QueryRow("SELECT original_url from urls where short_url = ?", shortURL).Scan(&originalURL)
+	err := s.db.QueryRow("SELECT original_url FROM urls WHERE short_url = ?", shortID).Scan(&originalURL)
 	return originalURL, err
 }
 

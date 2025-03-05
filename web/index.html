@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShortLink</title>
+    <style>
+        body {
+            background: linear-gradient(to right, #38e7c1, #1abc9c);
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 400px;
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        input {
+            width: 90%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 18px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #27ae60;
+        }
+
+        .short-link {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            margin-left: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1>ShortLink</h1>
+<div class="container">
+    <input id="urlInput" type="text" placeholder="Вставте URL сюди...">
+    <button onclick="shortenURL()">Скоротити</button>
+    <div id="result" class="short-link"></div>
+</div>
+
+<script>
+    async function shortenURL() {
+        const urlInput = document.getElementById("urlInput").value;
+
+        if (!urlInput) {
+            document.getElementById("result").innerText = "Будь ласка, введіть URL";
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/v1/shorten", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({originalURL: urlInput})
+            });
+
+            const data = await response.json();
+
+            if (data.shortURL) {
+                document.getElementById("result").innerHTML = `
+            <a href="${data.shortURL}" target="_blank">${data.shortURL}</a>
+            <button onclick="copyToClipboard('${data.shortURL}')">📋 Копіювати</button>
+        `;
+            } else {
+                document.getElementById("result").innerText = "Помилка скорочення URL";
+            }
+        } catch (error) {
+            console.error("Помилка запиту:", error);
+            document.getElementById("result").innerText = "Помилка сервера";
+        }
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Скопійовано: " + text);
+        });
+    }
+</script>
+
+</body>
+</html>
