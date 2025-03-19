@@ -88,9 +88,24 @@ func main() {
 	}
 
 	httpMux := http.NewServeMux()
-	httpMux.Handle("/api/v1/", http.StripPrefix("/api/v1", mux))
-	httpMux.HandleFunc("/short/", (&server{save: store}).RedirectHandler)
+
+	// ✅ Додаємо перевірку стану сервера
+	httpMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	// ✅ Додаємо хендлер для кореневого `/`
 	httpMux.Handle("/", http.FileServer(http.Dir("./web")))
+
+	// ✅ Підключаємо gRPC-Gateway на `/api/v1/`
+	httpMux.Handle("/api/v1/", http.StripPrefix("/api/v1", mux))
+
+	// ✅ Додаємо обробник редіректу
+	httpMux.HandleFunc("/short/", (&server{save: store}).RedirectHandler)
+
+	// ✅ Додаємо можливість віддавати статичні файли, якщо `web/` існує
+	httpMux.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("./web"))))
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
