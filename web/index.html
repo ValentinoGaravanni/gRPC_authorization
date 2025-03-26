@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShortLink</title>
+    <title>URL Shortener</title>
     <style>
         body {
-            background: linear-gradient(to right, #38e7c1, #1abc9c);
             font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #cce5ff, #99ccff);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -16,111 +16,146 @@
             margin: 0;
         }
 
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            width: 400px;
+        h1 {
+            color: #333;
         }
 
-        h1 {
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
             margin-bottom: 15px;
-            color: #2c3e50;
         }
 
         input {
-            width: 90%;
+            flex: 1;
             padding: 10px;
             font-size: 16px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            margin-bottom: 10px;
-            outline: none;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
 
         button {
-            padding: 12px 20px;
-            font-size: 18px;
-            background-color: #2ecc71;
+            background-color: #007bff;
             color: white;
             border: none;
-            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
             cursor: pointer;
             transition: 0.3s;
         }
 
         button:hover {
-            background-color: #27ae60;
+            background-color: #0056b3;
         }
 
-        .short-link {
-            margin-top: 20px;
-            font-size: 18px;
-            font-weight: bold;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        td a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        td a:hover {
+            text-decoration: underline;
         }
 
         .copy-btn {
-            margin-left: 10px;
+            background-color: #28a745;
             padding: 5px 10px;
             font-size: 14px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
         }
 
+        .copy-btn:hover {
+            background-color: #218838;
+        }
+
+        @media (max-width: 600px) {
+            .input-group {
+                flex-direction: column;
+            }
+
+            input, button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
-
-<h1>ShortLink</h1>
+<h1>URL Shortener</h1>
 <div class="container">
-    <input id="urlInput" type="text" placeholder="Вставте URL сюди...">
-    <button onclick="shortenURL()">Скоротити</button>
-    <div id="result" class="short-link"></div>
+    <div class="input-group">
+        <input type="text" id="original-url" placeholder="Enter URL">
+        <button onclick="shortenURL()">Shorten</button>
+    </div>
+    <table id="url-table">
+        <thead>
+        <tr>
+            <th>Original URL</th>
+            <th>Shortened URL</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 </div>
 
 <script>
     async function shortenURL() {
-        const urlInput = document.getElementById("urlInput").value;
+        const urlInput = document.getElementById("original-url");
+        const response = await fetch("http://localhost:8081/api/v1/shorten", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ originalURL: urlInput.value })
+        });
+        const data = await response.json();
+        addRow(urlInput.value, data.shortURL);
+        urlInput.value = "";
+    }
 
-        if (!urlInput) {
-            document.getElementById("result").innerText = "Будь ласка, введіть URL";
-            return;
-        }
+    function addRow(original, short) {
+        const table = document.getElementById("url-table").getElementsByTagName("tbody")[0];
+        const row = table.insertRow();
+        row.insertCell(0).innerHTML = `<span title="${original}">${truncateText(original, 30)}</span>`;
+        row.insertCell(1).innerHTML = `<a href="${short}" target="_blank">${short}</a>`;
+        row.insertCell(2).innerHTML = `<button class="copy-btn" onclick="copyToClipboard('${short}')">Copy</button>`;
+    }
 
-        try {
-            const response = await fetch("/api/v1/shorten", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({originalURL: urlInput})
-            });
-
-            const data = await response.json();
-
-            if (data.shortURL) {
-                document.getElementById("result").innerHTML = `
-            <a href="${data.shortURL}" target="_blank">${data.shortURL}</a>
-            <button onclick="copyToClipboard('${data.shortURL}')">📋 Копіювати</button>
-        `;
-            } else {
-                document.getElementById("result").innerText = "Помилка скорочення URL";
-            }
-        } catch (error) {
-            console.error("Помилка запиту:", error);
-            document.getElementById("result").innerText = "Помилка сервера";
-        }
+    function truncateText(text, maxLength) {
+        return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
     }
 
     function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Скопійовано: " + text);
-        });
+        navigator.clipboard.writeText(text).then(() => alert("Copied!"));
     }
 </script>
-
 </body>
 </html>

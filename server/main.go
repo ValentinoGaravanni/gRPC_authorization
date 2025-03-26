@@ -89,22 +89,22 @@ func main() {
 
 	httpMux := http.NewServeMux()
 
-	// ✅ Додаємо перевірку стану сервера
+	// Status server
 	httpMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	// ✅ Додаємо хендлер для кореневого `/`
+	// Handler /
 	httpMux.Handle("/", http.FileServer(http.Dir("./web")))
 
-	// ✅ Підключаємо gRPC-Gateway на `/api/v1/`
+	// gRPC gateway on `/api/v1/`
 	httpMux.Handle("/api/v1/", http.StripPrefix("/api/v1", mux))
 
-	// ✅ Додаємо обробник редіректу
+	// Redirect handler
 	httpMux.HandleFunc("/short/", (&server{save: store}).RedirectHandler)
 
-	// ✅ Додаємо можливість віддавати статичні файли, якщо `web/` існує
+	// static files for working index.html
 	httpMux.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("./web"))))
 
 	handler := cors.New(cors.Options{
